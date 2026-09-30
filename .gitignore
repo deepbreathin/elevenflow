@@ -1,0 +1,17 @@
+# secrets and machine-specific paths — never commit
+secrets.properties
+local.properties
+*.keystore
+*.jks
+
+# build output
+build/
+.gradle/
+*.apk
+
+# personal notes (how the maintainer ships builds to their own phone)
+PERSONAL.md
+
+.DS_Store
+.idea/
+*.iml
