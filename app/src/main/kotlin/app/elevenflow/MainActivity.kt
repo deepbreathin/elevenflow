@@ -42,8 +42,10 @@ class MainActivity : Activity() {
         // Your own ElevenLabs key: stored only on this phone (app-private storage), sent only to api.elevenlabs.io.
         keyField = EditText(this).apply {
             hint = "ElevenLabs API key (sk_…)"
+            isSingleLine = true   // must come before the masking: setSingleLine() resets it
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            isSingleLine = true
+            transformationMethod = android.text.method.PasswordTransformationMethod.getInstance()
+            typeface = android.graphics.Typeface.DEFAULT
             setText(getSharedPreferences("flow", MODE_PRIVATE).getString("apiKey", ""))
             addTextChangedListener(object : TextWatcher {
                 override fun afterTextChanged(e: Editable?) { Settings.put(this@MainActivity, "apiKey", e.toString().trim()); render() }

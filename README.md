@@ -64,6 +64,8 @@ Requires **Android 9 or newer**. It's developed and tested on Android 13–14.
 Open ElevenFlow. The big button at the top always shows the next thing to do, and the ticks show
 what's done.
 
+<p align="center"><img src="docs/setup.png" width="560" alt="Setup screen: before (left) and ready (right)"></p>
+
 1. **Paste your ElevenLabs API key** into the key field.
    - Get one at **elevenlabs.io → Developers → API keys**. If you restrict the key's permissions,
      it needs **Speech to Text** access.
