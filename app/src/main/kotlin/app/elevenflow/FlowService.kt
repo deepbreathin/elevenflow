@@ -467,9 +467,23 @@ class FlowService : Service() {
                 // wav may still be flushing for a moment; the path is fixed so the entry is valid either way
                 History.add(this@FlowService, History.Entry(id, text, wav.absolutePath, ok = true))
                 clip(text)   // always in the clipboard, whatever happens next
-                // didn't land in a box (none focused, app refused, auto-paste off) → nudge to paste it later
-                if (InsertService.instance?.insert(text) != InsertService.Result.OK) Nudge.ready(this@FlowService, id, text)
-                else Nudge.cancelResult(this@FlowService)
+                // Sometimes the box isn't focused yet the instant the text arrives (keyboard still coming
+                // back after the bubble tap), so try again for ~2 s before falling back to the nudge
+                // ("Dictation ready").
+                val entryId = id
+                thread(name = "insert") {
+                    var result = InsertService.instance?.insert(text)
+                    var tries = 0
+                    while (result != InsertService.Result.OK && tries < 8) {
+                        Thread.sleep(250); tries++
+                        result = InsertService.instance?.insert(text)
+                    }
+                    if (result != InsertService.Result.OK) Nudge.ready(this@FlowService, entryId, text)
+                    else {
+                        Nudge.cancelResult(this@FlowService)
+                        if (tries > 0) android.util.Log.i("ElevenFlow", "pasted on retry $tries")
+                    }
+                }
             }
             end(if (retried) "Last: $ms ms (via saved recording)" else "Last: $ms ms after stop")
         }
