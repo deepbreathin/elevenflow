@@ -17,8 +17,8 @@ android {
         applicationId = "app.elevenflow"
         minSdk = 28
         targetSdk = 34
-        versionCode = 16
-        versionName = "0.16"
+        versionCode = 17
+        versionName = "0.17"
         // Optional personal fallback key from secrets.properties (git-ignored). Public builds: pass -PnoKey,
         // and users paste their own key in the app instead.
         val key = if (project.hasProperty("noKey")) "" else secrets.getProperty("ELEVENLABS_API_KEY", "")

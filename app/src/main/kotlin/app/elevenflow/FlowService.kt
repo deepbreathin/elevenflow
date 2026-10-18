@@ -64,7 +64,7 @@ class FlowService : Service() {
         // Debug-only test hook: feed a 16 kHz mono WAV as if it were the mic (real time), then stop.
         //   adb shell am broadcast -n app.elevenflow/.TestReceiver --es wav /data/local/tmp/x.wav
         if (BuildConfig.DEBUG && intent?.action == "test" && running) {
-            intent.getStringExtra("wav")?.let { path -> main.post { if (session == null) { session = Session(java.io.File(path)).also { it.start() }; render() } } }
+            intent.getStringExtra("wav")?.let { path -> main.post { if (session == null) { Hush.begin(this); session = Session(java.io.File(path)).also { it.start() }; render() } } }
             return START_STICKY
         }
         if (running) {
@@ -310,6 +310,7 @@ class FlowService : Service() {
     // ---------- one utterance ----------
 
     private fun startSession() {
+        Hush.begin(this)   // pause music, cut off anything being read out
         session = Session(null).also { it.start() }
         render()
     }
@@ -381,6 +382,7 @@ class FlowService : Service() {
             releasedAt = SystemClock.uptimeMillis()
             state = State.WAITING
             recording = false
+            Hush.end(this@FlowService)
             render()
             if (liveDead) viaFile()
             else main.postDelayed({ if (!done && !liveDead) liveFailed() }, COMMIT_TIMEOUT_MS)
@@ -396,6 +398,7 @@ class FlowService : Service() {
         fun cancel() {
             cancelled = true
             recording = false
+            Hush.end(this@FlowService)
             done = true
             scribe.close()
             thread { wavReady.await(); wav.delete() }
