@@ -44,8 +44,10 @@ and sent only to ElevenLabs. There's no server in between, no account and no tra
   it arrived late), a notification appears: tap it to paste into whatever box you're in now.
 - **Stays out of the way.** By default the bubble only appears while a keyboard is open, and it's
   see-through so you can read what's underneath.
-- **Live sound wave.** While recording, bright green bars and a blinking red dot appear beside the
-  bubble on a dark pill, so you can see at a glance that it's hearing you.
+- **Live sound wave.** While recording, a sound wave appears beside the bubble so you can see at a
+  glance that it's hearing you. There are four styles, each with a live preview in the app:
+  *Neon* (green bars and a red dot), *Classic orange*, *Line* (a smooth glowing wave) and
+  *Minimal* (white bars, no background).
 - **Your own bubble.** Use the robot, or pick any picture from your phone. The app makes its
   "recording" look (tinted purple) automatically. The bubble can be anything from small to very large.
 - **Pauses your music.** Music or podcasts pause while you dictate and resume afterwards. If nothing
@@ -124,7 +126,8 @@ Everything applies instantly, even while the bubble is on screen.
 | **See-through when idle** | How visible the bubble is when not recording | 37% |
 | **See-through when recording** | How visible it is while recording | 65% |
 | **Only show when the keyboard is up** | Hide the bubble unless you're typing somewhere | On |
-| **Sound meter while recording** | The green sound wave beside the bubble | On |
+| **Sound meter while recording** | The sound wave beside the bubble | On |
+| **Sound wave style** | Neon, Classic orange, Line or Minimal: tap a preview to choose | Neon |
 | **Vibrate on start / stop** | A small buzz when recording starts and ends | On |
 | **Tap vs hold** | Press length that counts as a hold, 150–800 ms | 300 ms |
 | **Remove filler words and stutters** | Drops um/uh/erm, repeated words and phrases, and stuttered word-starts | On |

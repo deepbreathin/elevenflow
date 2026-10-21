@@ -43,6 +43,7 @@ A technical tour for anyone reading or changing the code. The user guide is in t
 | `Cleanup.kt` | Removes fillers and stutters from every result (see [Cleaning up speech](#cleaning-up-speech)). Unit-tested in `app/src/test`. |
 | `Hush.kt` | Pauses music while you dictate: takes exclusive audio focus only if a media player is actually playing, gives it back when recording ends, and presses Play if the music hasn't resumed 1.2 s later. |
 | `BubbleArt.kt` | The bubble's idle and recording images: the built-in robot, or your picked picture (centre-cropped to a square, scaled to 384 px, with the recording version made by mapping brightness onto a purple ramp). |
+| `Wave.kt` | The sound-wave styles (`WaveStyle`) and the one view that draws them (`WaveView`), used by both the live meter and the animated previews in settings. |
 | `Settings.kt` | Every user setting and its default, in one place. The service re-reads them live. |
 | `MainActivity.kt` | Setup checklist, API key field, settings, and recent dictations with retry. |
 | `TestReceiver.kt` + `src/debug/AndroidManifest.xml` | Debug-only hook that feeds a WAV file in place of the microphone (see [Testing](#testing)). |

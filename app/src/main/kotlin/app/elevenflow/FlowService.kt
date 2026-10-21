@@ -53,7 +53,7 @@ class FlowService : Service() {
     private lateinit var wm: WindowManager
     private lateinit var bubble: Bubble
     private lateinit var lp: WindowManager.LayoutParams
-    private lateinit var meter: Meter
+    private lateinit var meter: WaveView
     private lateinit var meterLp: WindowManager.LayoutParams
     private var session: Session? = null
 
@@ -168,7 +168,7 @@ class FlowService : Service() {
             true
         }
         wm.addView(bubble, lp)
-        meter = Meter(this)
+        meter = WaveView(this, WaveStyle.of(this))
         meterLp = WindowManager.LayoutParams(
             dp(104), dp(34),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -231,8 +231,9 @@ class FlowService : Service() {
     /** Level meter sits beside the bubble, on whichever side has more screen. */
     private fun placeMeter() {
         if (!::meter.isInitialized) return
-        meterLp.height = (lp.height * 0.5f).toInt().coerceIn(dp(32), dp(80))
-        meterLp.width = (meterLp.height * 3.4f).toInt()
+        val style = WaveStyle.of(this)
+        meterLp.height = style.heightFor(lp.height, resources.displayMetrics.density)
+        meterLp.width = (meterLp.height * style.aspect).toInt()
         val onRight = lp.x + lp.width / 2 > resources.displayMetrics.widthPixels / 2
         meterLp.x = if (onRight) lp.x - meterLp.width - dp(4) else lp.x + lp.width + dp(4)
         meterLp.y = lp.y + (lp.height - meterLp.height) / 2
@@ -241,6 +242,7 @@ class FlowService : Service() {
 
     // held as a field: SharedPreferences only keeps weak references to listeners
     private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "waveStyle") main.post { if (::meter.isInitialized) { meter.setStyleTo(WaveStyle.of(this)); placeMeter() } }
         if (key == "bubbleArt") main.post { if (::bubble.isInitialized) bubble.reload() }
         if (key == "sizeDp") main.post {
             lp.width = dp(Settings.sizeDp(this)); lp.height = lp.width
@@ -285,57 +287,6 @@ class FlowService : Service() {
             p.alpha = (if (rec) Settings.recOpacity(context) else Settings.idleOpacity(context)) * 255 / 100
             dst.set(0f, 0f, width.toFloat(), height.toFloat())
             c.drawBitmap(if (rec) on else off, null, dst, p)
-        }
-    }
-
-    /**
-     * Live sound wave beside the bubble while recording: bright green bars on a dark pill (readable on
-     * any background), mirrored around the middle, newest on the right. Bars ease toward your voice
-     * level and keep a gentle ripple in quiet moments, and a red dot blinks, so it's obvious at a
-     * glance that it's listening.
-     */
-    private inner class Meter(ctx: Context) : View(ctx) {
-        private val n = 22
-        private val levels = FloatArray(n)          // targets from the mic, scrolling
-        private val shown = FloatArray(n)           // what's drawn, eased toward the targets
-        private var head = 0
-        private val bar = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#39FF88"); setShadowLayer(dp(3).toFloat(), 0f, 0f, Color.parseColor("#9939FF88"))
-        }
-        private val pill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#EB0E0B16") }
-        private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat(); color = Color.parseColor("#6639FF88")
-        }
-        private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF3B4E") }
-        init { setLayerType(LAYER_TYPE_SOFTWARE, null) }   // needed for the glow
-
-        fun clear() { levels.fill(0f); shown.fill(0f); head = 0; invalidate() }
-        fun push(v: Float) { levels[head] = v; head = (head + 1) % n }
-
-        override fun onDraw(c: Canvas) {
-            val h = height.toFloat(); val w = width.toFloat()
-            val r = h / 2
-            c.drawRoundRect(1f, 1f, w - 1, h - 1, r, r, pill)
-            c.drawRoundRect(1f, 1f, w - 1, h - 1, r, r, rim)
-
-            val t = SystemClock.uptimeMillis()
-            // blinking "recording" dot on the left
-            dot.alpha = if ((t / 500) % 2 == 0L) 255 else 90
-            c.drawCircle(r, r, h * 0.12f, dot)
-
-            val left = h * 0.85f; val right = w - h * 0.35f
-            val slot = (right - left) / n
-            val bw = slot * 0.6f
-            val maxH = h * 0.72f
-            for (i in 0 until n) {
-                val k = (head + i) % n
-                shown[k] += (levels[k] - shown[k]) * 0.35f
-                val ripple = 0.08f + 0.05f * Math.sin(t / 140.0 + i * 0.7).toFloat()   // alive even when quiet
-                val bh = maxOf(bw, maxOf(shown[k], ripple) * maxH)
-                val cx = left + slot * (i + 0.5f)
-                c.drawRoundRect(cx - bw / 2, (h - bh) / 2, cx + bw / 2, (h + bh) / 2, bw / 2, bw / 2, bar)
-            }
-            if (visibility == VISIBLE) postInvalidateOnAnimation()
         }
     }
 

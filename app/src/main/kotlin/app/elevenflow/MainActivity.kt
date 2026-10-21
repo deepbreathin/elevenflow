@@ -71,6 +71,7 @@ class MainActivity : Activity() {
         slider("See-through when recording", 10, 100, Settings.recOpacity(this), "recOpacity") { "$it% visible" }
         toggle("Only show when the keyboard is up", Settings.keyboardOnly(this), "kbonly")
         toggle("Sound meter while recording", Settings.meter(this), "meter")
+        waveStylePicker()
         toggle("Vibrate on start / stop", Settings.vibrate(this), "vibrate")
 
         heading("Dictation")
@@ -134,6 +135,49 @@ class MainActivity : Activity() {
             val ok = runCatching { BubbleArt.setFrom(this, uri) }.getOrDefault(false)
             runOnUiThread { renderArt(); toast(if (ok) "Bubble image updated" else "Couldn't read that image") }
         }.start()
+    }
+
+    /** One animated preview per sound-wave style, fed with pretend speech; tap one to use it. */
+    private fun waveStylePicker() {
+        col.addView(TextView(this).apply { text = "Sound wave style"; textSize = 16f; setPadding(0, (10 * px).toInt(), 0, (4 * px).toInt()) })
+        val rows = mutableListOf<Pair<LinearLayout, WaveStyle>>()
+        val previews = mutableListOf<WaveView>()
+        fun mark() = rows.forEach { (row, st) ->
+            row.background = if (st == WaveStyle.of(this)) android.graphics.drawable.GradientDrawable().apply {
+                setStroke((2 * px).toInt(), android.graphics.Color.parseColor("#8B5CF6")); cornerRadius = 12 * px
+            } else null
+        }
+        for (st in WaveStyle.values()) {
+            val h = (40 * px).toInt()
+            val preview = WaveView(this, st).apply { layoutParams = LinearLayout.LayoutParams((h * st.aspect).toInt(), h) }
+            previews += preview
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding((10 * px).toInt(), (8 * px).toInt(), (10 * px).toInt(), (8 * px).toInt())
+                // a checkerboard-free mid-grey backdrop so the see-through styles read as they will over apps
+                addView(LinearLayout(this@MainActivity).apply {
+                    setBackgroundColor(android.graphics.Color.parseColor("#5A5F6B")); setPadding((8 * px).toInt(), (8 * px).toInt(), (8 * px).toInt(), (8 * px).toInt())
+                    addView(preview)
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                addView(TextView(this@MainActivity).apply { text = st.label; textSize = 14f; setPadding(0, (4 * px).toInt(), 0, 0) })
+                setOnClickListener { Settings.put(this@MainActivity, "waveStyle", st.ordinal); mark() }
+            }
+            rows += row to st
+            col.addView(row)
+        }
+        mark()
+        // pretend speech: syllable-ish bursts, so each preview moves like it will when you talk
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var t = 0.0
+        handler.post(object : Runnable {
+            override fun run() {
+                t += 0.05
+                val v = (0.55 + 0.45 * Math.sin(t * 7) * Math.sin(t * 2.3)).coerceIn(0.0, 1.0).toFloat() *
+                    (if ((t % 4) > 3.2) 0.1f else 1f)
+                previews.forEach { it.push(v) }
+                if (!isFinishing) handler.postDelayed(this, 50)
+            }
+        })
     }
 
     private fun heading(t: String) = col.addView(TextView(this).apply {

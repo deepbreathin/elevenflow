@@ -12,6 +12,7 @@ object Settings {
     fun holdMs(ctx: Context) = p(ctx).getInt("holdMs", 300)                 // tap vs hold cut-off
     fun keyboardOnly(ctx: Context) = p(ctx).getBoolean("kbonly", true)
     fun meter(ctx: Context) = p(ctx).getBoolean("meter", true)
+    fun waveStyle(ctx: Context) = p(ctx).getInt("waveStyle", 0)              // WaveStyle ordinal
     fun vibrate(ctx: Context) = p(ctx).getBoolean("vibrate", true)
     fun autoLanguage(ctx: Context) = p(ctx).getBoolean("autoLang", false)   // false = English only (faster, fewer mis-hears)
     /** Your ElevenLabs key, entered in the app. Falls back to one baked in at build time (secrets.properties), if any. */
