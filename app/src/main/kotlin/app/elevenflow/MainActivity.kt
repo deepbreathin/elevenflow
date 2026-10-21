@@ -23,6 +23,8 @@ import android.provider.Settings as SysSettings
 /** Setup button that walks through whatever is missing, then settings (all live), custom words, recent dictations. */
 class MainActivity : Activity() {
 
+    companion object { private const val PICK_IMAGE = 7 }
+
     private lateinit var status: TextView
     private lateinit var button: Button
     private lateinit var history: LinearLayout
@@ -63,7 +65,8 @@ class MainActivity : Activity() {
         col.addView(button)
 
         heading("Bubble")
-        slider("Size", 36, 110, Settings.sizeDp(this), "sizeDp") { "$it dp" }
+        slider("Size", 36, 240, Settings.sizeDp(this), "sizeDp") { "$it dp" }
+        artRow()
         slider("See-through when idle", 10, 100, Settings.idleOpacity(this), "idleOpacity") { "$it% visible" }
         slider("See-through when recording", 10, 100, Settings.recOpacity(this), "recOpacity") { "$it% visible" }
         toggle("Only show when the keyboard is up", Settings.keyboardOnly(this), "kbonly")
@@ -72,6 +75,7 @@ class MainActivity : Activity() {
 
         heading("Dictation")
         slider("Tap vs hold", 150, 800, Settings.holdMs(this), "holdMs") { "hold longer than $it ms = push-to-talk" }
+        toggle("Remove filler words (um, uh) and stutters", Settings.cleanSpeech(this), "cleanSpeech")
         toggle("Detect language (off = English only, a bit more accurate)", Settings.autoLanguage(this), "autoLang")
         col.addView(EditText(this).apply {
             hint = "Custom words, comma separated (names, jargon)"
@@ -85,6 +89,51 @@ class MainActivity : Activity() {
 
         heading("Recent — tap to copy")
         col.addView(history)
+    }
+
+    private lateinit var artPreview: LinearLayout
+    private lateinit var artReset: Button
+
+    /** Bubble image: preview of idle + recording looks, choose your own, or go back to the robot. */
+    private fun artRow() {
+        val s = (56 * px).toInt()
+        artPreview = LinearLayout(this).apply { setPadding(0, (8 * px).toInt(), 0, (4 * px).toInt()) }
+        col.addView(TextView(this).apply { text = "Bubble image (idle · recording)"; textSize = 16f })
+        col.addView(artPreview)
+        col.addView(Button(this).apply {
+            text = "Choose your own image…"; textSize = 16f
+            setOnClickListener {
+                startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).setType("image/*")
+                    .addCategory(Intent.CATEGORY_OPENABLE), PICK_IMAGE)
+            }
+        })
+        artReset = Button(this).apply {
+            text = "Back to the robot"; textSize = 16f
+            setOnClickListener { BubbleArt.reset(this@MainActivity); renderArt() }
+        }
+        col.addView(artReset)
+        renderArt()
+    }
+
+    private fun renderArt() {
+        val s = (56 * px).toInt()
+        artPreview.removeAllViews()
+        val (off, on) = BubbleArt.load(this)
+        for (b in listOf(off, on)) artPreview.addView(android.widget.ImageView(this).apply {
+            setImageBitmap(b); layoutParams = LinearLayout.LayoutParams(s, s).apply { marginEnd = (12 * px).toInt() }
+        })
+        artReset.visibility = if (BubbleArt.hasCustom(this)) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
+    @Deprecated("platform API; fine for a one-screen app")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (requestCode != PICK_IMAGE || resultCode != RESULT_OK || uri == null) return
+        Thread {
+            val ok = runCatching { BubbleArt.setFrom(this, uri) }.getOrDefault(false)
+            runOnUiThread { renderArt(); toast(if (ok) "Bubble image updated" else "Couldn't read that image") }
+        }.start()
     }
 
     private fun heading(t: String) = col.addView(TextView(this).apply {
@@ -178,7 +227,8 @@ class MainActivity : Activity() {
         label.text = "… transcribing"
         val kt = Settings.keyterms(this); val auto = Settings.autoLanguage(this)
         Thread {
-            val result = runCatching { Batch.transcribe(Settings.apiKey(this), java.io.File(e.audio!!), kt, auto) }
+            val result = runCatching { Batch.transcribe(Settings.apiKey(this), java.io.File(e.audio!!), kt, auto, Settings.cleanSpeech(this))
+                .let { Settings.tidy(this, it) } }
             runOnUiThread {
                 result.onSuccess { t ->
                     History.update(this, e.id, t, ok = true)

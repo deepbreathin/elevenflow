@@ -10,7 +10,8 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /** One ElevenLabs Scribe v2 Realtime session = one utterance. Audio sent before the socket opens is queued. */
-class Scribe(private val listener: Listener, apiKey: String, keyterms: List<String> = emptyList(), autoLanguage: Boolean = false) {
+class Scribe(private val listener: Listener, apiKey: String, keyterms: List<String> = emptyList(), autoLanguage: Boolean = false,
+             noVerbatim: Boolean = false) {
 
     interface Listener {
         fun onPartial(text: String)
@@ -33,7 +34,7 @@ class Scribe(private val listener: Listener, apiKey: String, keyterms: List<Stri
     var closed = false; private set
 
     private val ws: WebSocket = http.newWebSocket(
-        Request.Builder().url(URL + (if (autoLanguage) "" else "&language_code=en") + keyterms.joinToString("") { "&keyterms=" + java.net.URLEncoder.encode(it, "UTF-8") }).header("xi-api-key", apiKey).build(),
+        Request.Builder().url(URL + (if (autoLanguage) "" else "&language_code=en") + (if (noVerbatim) "&no_verbatim=true" else "") + keyterms.joinToString("") { "&keyterms=" + java.net.URLEncoder.encode(it, "UTF-8") }).header("xi-api-key", apiKey).build(),
         object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 synchronized(lock) {

@@ -17,6 +17,9 @@ object Settings {
     /** Your ElevenLabs key, entered in the app. Falls back to one baked in at build time (secrets.properties), if any. */
     fun apiKey(ctx: Context) = p(ctx).getString("apiKey", "")!!.trim().ifEmpty { BuildConfig.ELEVEN_KEY }
     fun wantOn(ctx: Context) = p(ctx).getBoolean("wantOn", true)          // bubble should be running
+    fun cleanSpeech(ctx: Context) = p(ctx).getBoolean("cleanSpeech", true)    // drop fillers + stutters
+    /** Applies the filler/stutter cleanup if it's switched on. */
+    fun tidy(ctx: Context, text: String) = if (cleanSpeech(ctx)) Cleanup.clean(text) else text
     fun keyterms(ctx: Context) = p(ctx).getString("keyterms", "")!!
         .split(",").map { it.trim() }.filter { it.isNotEmpty() }
 

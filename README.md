@@ -34,8 +34,9 @@ and sent only to ElevenLabs. There's no server in between, no account and no tra
   while you talk and let go to send. It tells them apart by how long you press.
 - **Low latency.** Audio streams live to ElevenLabs' realtime model (Scribe v2 Realtime) while
   you speak, so the text is usually ready ~0.2–0.4 s after you stop.
-- **Types for you.** The text is pasted into the focused text box. It is also always copied to
-  the clipboard as a backup.
+- **Types for you.** The text is pasted into the focused text box. If the box isn't ready yet, for
+  example because the keyboard is still coming back, it keeps trying for about 2 seconds. The text is
+  also always copied to the clipboard as a backup.
 - **Long recordings work.** Several minutes of speech come back as one complete piece of text.
 - **Nothing gets lost.** Every recording is saved on the phone. If the connection drops, it's
   re-sent automatically. If there's no signal at all, it waits in the app for you to retry.
@@ -43,8 +44,15 @@ and sent only to ElevenLabs. There's no server in between, no account and no tra
   it arrived late), a notification appears: tap it to paste into whatever box you're in now.
 - **Stays out of the way.** By default the bubble only appears while a keyboard is open, and it's
   see-through so you can read what's underneath.
-- **Sound meter.** While recording, a small level meter appears next to the bubble so you know
-  it's hearing you.
+- **Live sound wave.** While recording, bright green bars and a blinking red dot appear beside the
+  bubble on a dark pill, so you can see at a glance that it's hearing you.
+- **Your own bubble.** Use the robot, or pick any picture from your phone. The app makes its
+  "recording" look (tinted purple) automatically. The bubble can be anything from small to very large.
+- **Pauses your music.** Music or podcasts pause while you dictate and resume afterwards. If nothing
+  was playing, nothing is touched.
+- **Clean text.** Filler sounds (um, uh, erm) and stutters ("I, I, I want", "b-b-book",
+  "can you, can you") are removed automatically. It's handy for anyone who stutters, and you can
+  switch it off.
 - **Custom words.** Teach it names and jargon it would otherwise mishear.
 - **Foldable-friendly.** The bubble keeps its place when you fold or unfold the phone or rotate it.
 
@@ -111,13 +119,15 @@ Everything applies instantly, even while the bubble is on screen.
 
 | Setting | What it does | Default |
 |---|---|---|
-| **Size** | Bubble size, 36–110 dp | 60 dp |
+| **Size** | Bubble size, 36–240 dp (the sound wave grows with it) | 60 dp |
+| **Bubble image** | The robot, or **Choose your own image…** (cropped to a square; the purple recording look is made for you). **Back to the robot** undoes it | Robot |
 | **See-through when idle** | How visible the bubble is when not recording | 37% |
 | **See-through when recording** | How visible it is while recording | 65% |
 | **Only show when the keyboard is up** | Hide the bubble unless you're typing somewhere | On |
-| **Sound meter while recording** | The level meter beside the bubble | On |
+| **Sound meter while recording** | The green sound wave beside the bubble | On |
 | **Vibrate on start / stop** | A small buzz when recording starts and ends | On |
 | **Tap vs hold** | Press length that counts as a hold, 150–800 ms | 300 ms |
+| **Remove filler words and stutters** | Drops um/uh/erm, repeated words and phrases, and stuttered word-starts | On |
 | **Detect language** | Off = English only (slightly more accurate). On = auto-detect | Off |
 | **Custom words** | Comma-separated names or jargon to recognise, e.g. `Kubernetes, Siobhan, PnL` | — |
 

@@ -17,8 +17,8 @@ android {
         applicationId = "app.elevenflow"
         minSdk = 28
         targetSdk = 34
-        versionCode = 17
-        versionName = "0.17"
+        versionCode = 18
+        versionName = "0.18"
         // Optional personal fallback key from secrets.properties (git-ignored). Public builds: pass -PnoKey,
         // and users paste their own key in the app instead.
         val key = if (project.hasProperty("noKey")) "" else secrets.getProperty("ELEVENLABS_API_KEY", "")
@@ -33,8 +33,10 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     sourceSets["main"].java.srcDirs("src/main/kotlin")
+    sourceSets["test"].java.srcDirs("src/test/kotlin")
 }
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")   // WebSocket client
+    testImplementation("junit:junit:4.13.2")
 }

@@ -231,6 +231,8 @@ class FlowService : Service() {
     /** Level meter sits beside the bubble, on whichever side has more screen. */
     private fun placeMeter() {
         if (!::meter.isInitialized) return
+        meterLp.height = (lp.height * 0.5f).toInt().coerceIn(dp(32), dp(80))
+        meterLp.width = (meterLp.height * 3.4f).toInt()
         val onRight = lp.x + lp.width / 2 > resources.displayMetrics.widthPixels / 2
         meterLp.x = if (onRight) lp.x - meterLp.width - dp(4) else lp.x + lp.width + dp(4)
         meterLp.y = lp.y + (lp.height - meterLp.height) / 2
@@ -239,8 +241,10 @@ class FlowService : Service() {
 
     // held as a field: SharedPreferences only keeps weak references to listeners
     private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "bubbleArt") main.post { if (::bubble.isInitialized) bubble.reload() }
         if (key == "sizeDp") main.post {
             lp.width = dp(Settings.sizeDp(this)); lp.height = lp.width
+            restorePosition()   // keep the same gap to its edge, so a bigger bubble doesn't hang off-screen
             wm.updateViewLayout(bubble, lp)
             placeMeter()
         }
@@ -269,8 +273,10 @@ class FlowService : Service() {
 
     /** Robot art (art/robot.webp): off = as drawn, on (recording) = whole thing tinted purple. */
     private inner class Bubble(ctx: Context) : View(ctx) {
-        private val off = android.graphics.BitmapFactory.decodeResource(resources, R.drawable.bubble_off)
-        private val on = android.graphics.BitmapFactory.decodeResource(resources, R.drawable.bubble_on)
+        private var off: android.graphics.Bitmap
+        private var on: android.graphics.Bitmap
+        init { BubbleArt.load(ctx).let { off = it.first; on = it.second } }
+        fun reload() { BubbleArt.load(context).let { off = it.first; on = it.second }; invalidate() }
         private val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         private val dst = android.graphics.RectF()
 
@@ -282,28 +288,54 @@ class FlowService : Service() {
         }
     }
 
-    /** Scrolling bars of recent mic level: newest on the right, only shown while recording. */
+    /**
+     * Live sound wave beside the bubble while recording: bright green bars on a dark pill (readable on
+     * any background), mirrored around the middle, newest on the right. Bars ease toward your voice
+     * level and keep a gentle ripple in quiet moments, and a red dot blinks, so it's obvious at a
+     * glance that it's listening.
+     */
     private inner class Meter(ctx: Context) : View(ctx) {
-        private val levels = FloatArray(18)
+        private val n = 22
+        private val levels = FloatArray(n)          // targets from the mic, scrolling
+        private val shown = FloatArray(n)           // what's drawn, eased toward the targets
         private var head = 0
-        private val bar = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#B38B5CF6") }
-        private val pill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#402A0B5E") }
+        private val bar = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#39FF88"); setShadowLayer(dp(3).toFloat(), 0f, 0f, Color.parseColor("#9939FF88"))
+        }
+        private val pill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#EB0E0B16") }
+        private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat(); color = Color.parseColor("#6639FF88")
+        }
+        private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF3B4E") }
+        init { setLayerType(LAYER_TYPE_SOFTWARE, null) }   // needed for the glow
 
-        fun clear() { levels.fill(0f); head = 0; invalidate() }
-        fun push(v: Float) { levels[head] = v; head = (head + 1) % levels.size; invalidate() }
+        fun clear() { levels.fill(0f); shown.fill(0f); head = 0; invalidate() }
+        fun push(v: Float) { levels[head] = v; head = (head + 1) % n }
 
         override fun onDraw(c: Canvas) {
             val h = height.toFloat(); val w = width.toFloat()
-            c.drawRoundRect(0f, 0f, w, h, h / 2, h / 2, pill)
-            val n = levels.size
-            val slot = (w - h * 0.6f) / n
-            val bw = slot * 0.55f
+            val r = h / 2
+            c.drawRoundRect(1f, 1f, w - 1, h - 1, r, r, pill)
+            c.drawRoundRect(1f, 1f, w - 1, h - 1, r, r, rim)
+
+            val t = SystemClock.uptimeMillis()
+            // blinking "recording" dot on the left
+            dot.alpha = if ((t / 500) % 2 == 0L) 255 else 90
+            c.drawCircle(r, r, h * 0.12f, dot)
+
+            val left = h * 0.85f; val right = w - h * 0.35f
+            val slot = (right - left) / n
+            val bw = slot * 0.6f
+            val maxH = h * 0.72f
             for (i in 0 until n) {
-                val v = levels[(head + i) % n]
-                val bh = maxOf(bw, v * (h - dp(10)))
-                val cx = h * 0.3f + slot * (i + 0.5f)
+                val k = (head + i) % n
+                shown[k] += (levels[k] - shown[k]) * 0.35f
+                val ripple = 0.08f + 0.05f * Math.sin(t / 140.0 + i * 0.7).toFloat()   // alive even when quiet
+                val bh = maxOf(bw, maxOf(shown[k], ripple) * maxH)
+                val cx = left + slot * (i + 0.5f)
                 c.drawRoundRect(cx - bw / 2, (h - bh) / 2, cx + bw / 2, (h + bh) / 2, bw / 2, bw / 2, bar)
             }
+            if (visibility == VISIBLE) postInvalidateOnAnimation()
         }
     }
 
@@ -332,7 +364,8 @@ class FlowService : Service() {
         private val wav = Recordings.newFile(this@FlowService, id)
         private val wavReady = java.util.concurrent.CountDownLatch(1)
         private val audio = java.io.ByteArrayOutputStream()
-        private val scribe = Scribe(listener, Settings.apiKey(this@FlowService), keyterms(), Settings.autoLanguage(this@FlowService))
+        private val scribe = Scribe(listener, Settings.apiKey(this@FlowService), keyterms(), Settings.autoLanguage(this@FlowService),
+            Settings.cleanSpeech(this@FlowService))
         @Volatile private var liveDead = false
         private val segments = mutableListOf<String>()
         private var lastPartial = ""
@@ -441,7 +474,7 @@ class FlowService : Service() {
             thread(name = "batch") {
                 wavReady.await()
                 try {
-                    val text = Batch.transcribe(Settings.apiKey(this@FlowService), wav, kt, auto)
+                    val text = Batch.transcribe(Settings.apiKey(this@FlowService), wav, kt, auto, Settings.cleanSpeech(this@FlowService))
                     main.post { if (text.isBlank()) finishSilently() else deliver(text, retried = true) }
                 } catch (e: Exception) {
                     main.post { failedAll(e.message ?: "network error") }
@@ -452,7 +485,7 @@ class FlowService : Service() {
         private fun failedAll(msg: String) {
             if (done) return
             done = true
-            val partial = joined(lastPartial)
+            val partial = Settings.tidy(this@FlowService, joined(lastPartial))
             History.add(this@FlowService, History.Entry(id, partial, wav.absolutePath, ok = false))
             if (partial.isNotBlank()) clip(partial)
             Nudge.failed(this@FlowService, id, partial)
@@ -461,11 +494,11 @@ class FlowService : Service() {
 
         private fun deliver(raw: String, retried: Boolean = false) {
             if (done) return
-            if (raw.isBlank()) { finishSilently(); return }
+            val text = Settings.tidy(this@FlowService, raw).trim()
+            if (text.isBlank()) { finishSilently(); return }   // e.g. it was only "um"
             done = true
             scribe.close()
             val ms = SystemClock.uptimeMillis() - releasedAt
-            val text = raw.trim()
             if (text.isNotEmpty()) {
                 // wav may still be flushing for a moment; the path is fixed so the entry is valid either way
                 History.add(this@FlowService, History.Entry(id, text, wav.absolutePath, ok = true))

@@ -40,6 +40,9 @@ A technical tour for anyone reading or changing the code. The user guide is in t
 | `InsertService.kt` | Accessibility service. Finds the focused editable field (across windows), pastes (falling back to set-text), treats placeholder text as empty, and reports whether a keyboard is on screen. |
 | `Nudge.kt` / `NudgeReceiver.kt` | Heads-up notifications for "ready — tap to paste", "not transcribed — tap to retry" and "bubble off / mic blocked — tap to fix", plus what happens when you tap them. |
 | `History.kt` / `Recordings.kt` | Last 20 dictations (text + WAV path + ok flag) in SharedPreferences; WAV writing and pruning. |
+| `Cleanup.kt` | Removes fillers and stutters from every result (see [Cleaning up speech](#cleaning-up-speech)). Unit-tested in `app/src/test`. |
+| `Hush.kt` | Pauses music while you dictate: takes exclusive audio focus only if a media player is actually playing, gives it back when recording ends, and presses Play if the music hasn't resumed 1.2 s later. |
+| `BubbleArt.kt` | The bubble's idle and recording images: the built-in robot, or your picked picture (centre-cropped to a square, scaled to 384 px, with the recording version made by mapping brightness onto a purple ramp). |
 | `Settings.kt` | Every user setting and its default, in one place. The service re-reads them live. |
 | `MainActivity.kt` | Setup checklist, API key field, settings, and recent dictations with retry. |
 | `TestReceiver.kt` + `src/debug/AndroidManifest.xml` | Debug-only hook that feeds a WAV file in place of the microphone (see [Testing](#testing)). |
@@ -62,6 +65,29 @@ A technical tour for anyone reading or changing the code. The user guide is in t
   accepts them too, with less visible effect.
 - **Silence.** An empty commit returns an empty transcript, or an `insufficient_audio_activity`
   error. Both are treated as "heard nothing": no paste, and the recording is deleted.
+
+## Cleaning up speech
+
+With **Remove filler words and stutters** on (the default), two things happen:
+
+1. ElevenLabs is asked for non-verbatim output (`no_verbatim=true`, on both the realtime and file
+   endpoints). It drops some fillers and false starts, but inconsistently: in testing it removed
+   "um", "uh" and "I, I, I" from one clip and kept "uh", "um" and "can you, can you" in another.
+   It costs nothing measurable (median stop→text 269 ms without it, 282 ms with it, within noise).
+2. `Cleanup.clean()` then runs on the text. It's deterministic, offline and takes microseconds:
+
+| Removes | Example |
+|---|---|
+| Filler sounds (um, uh, erm, er, ah, hmm…), plus the commas they leave behind | "want to, uh, go" → "want to go" |
+| Hyphenated stutters | "b-b-book", "I-I-I" → "book", "I" |
+| Stuttered word-starts | "sh shop", "c c car" → "shop", "car" |
+| Repeated words | "I, I, I want", "for for" → "I want", "for" |
+| Repeated 2–4 word runs | "can you, can you book" → "can you book" |
+
+It deliberately keeps: hyphenated words that aren't stutters ("well-known", "re-enter", "e-mail"),
+real short words even before a longer word ("to today"), doubles that are normal English when said
+exactly twice ("that that", "had had"), anything across a sentence end ("Go. Go now."), and
+"like" / "you know", which often carry meaning. Run `./gradlew testDebugUnitTest` to check changes.
 
 ## Android findings
 
@@ -94,7 +120,8 @@ A technical tour for anyone reading or changing the code. The user guide is in t
 ## Testing
 
 Debug builds include a receiver that plays a 16 kHz mono 16-bit WAV into the bubble in real time,
-as if it were the microphone, then stops. Only adb can trigger it: it's protected by the `DUMP`
+as if it were the microphone, then stops. It also accepts `--ei size <dp>` to set the bubble
+size and `--es image <path>` to set a bubble image as if it were picked in the app. Only adb can trigger it: it's protected by the `DUMP`
 permission, which normal apps can't hold, and it only exists in debug builds.
 
 ```bash
