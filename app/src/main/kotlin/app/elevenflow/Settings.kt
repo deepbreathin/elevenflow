@@ -17,6 +17,8 @@ object Settings {
     fun autoLanguage(ctx: Context) = p(ctx).getBoolean("autoLang", false)   // false = English only (faster, fewer mis-hears)
     /** Your ElevenLabs key, entered in the app. Falls back to one baked in at build time (secrets.properties), if any. */
     fun apiKey(ctx: Context) = p(ctx).getString("apiKey", "")!!.trim().ifEmpty { BuildConfig.ELEVEN_KEY }
+    /** Optional webhook told when dictation starts/stops (see Hook). Falls back to one baked in at build time, if any. */
+    fun hookUrl(ctx: Context) = p(ctx).getString("hookUrl", "")!!.trim().ifEmpty { BuildConfig.HOOK_URL }
     fun wantOn(ctx: Context) = p(ctx).getBoolean("wantOn", true)          // bubble should be running
     fun cleanSpeech(ctx: Context) = p(ctx).getBoolean("cleanSpeech", true)    // drop fillers + stutters
     /** Applies the filler/stutter cleanup if it's switched on. */

@@ -36,6 +36,7 @@ object Hush {
 
     /** Recording starts. */
     fun begin(ctx: Context) = main.post {
+        Hook.start(ctx)
         val am = ctx.getSystemService(AudioManager::class.java)
         main.removeCallbacksAndMessages(RESUME)
         musicWas = playing(am, AudioAttributes.USAGE_MEDIA)
@@ -44,6 +45,7 @@ object Hush {
 
     /** Recording stopped (sent or cancelled). */
     fun end(ctx: Context) = main.post {
+        Hook.stop(ctx)
         if (!held) return@post
         val am = ctx.getSystemService(AudioManager::class.java)
         am.abandonAudioFocusRequest(request)

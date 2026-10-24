@@ -17,12 +17,15 @@ android {
         applicationId = "app.elevenflow"
         minSdk = 28
         targetSdk = 34
-        versionCode = 19
-        versionName = "0.19"
+        versionCode = 20
+        versionName = "0.20"
         // Optional personal fallback key from secrets.properties (git-ignored). Public builds: pass -PnoKey,
         // and users paste their own key in the app instead.
         val key = if (project.hasProperty("noKey")) "" else secrets.getProperty("ELEVENLABS_API_KEY", "")
         buildConfigField("String", "ELEVEN_KEY", "\"$key\"")
+        // Optional personal fallback webhook (HOOK_URL in secrets.properties); public builds leave it empty.
+        val hook = if (project.hasProperty("noKey")) "" else secrets.getProperty("HOOK_URL", "")
+        buildConfigField("String", "HOOK_URL", "\"$hook\"")
     }
 
     buildFeatures { buildConfig = true }

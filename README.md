@@ -52,6 +52,9 @@ and sent only to ElevenLabs. There's no server in between, no account and no tra
   "recording" look (tinted purple) automatically. The bubble can be anything from small to very large.
 - **Pauses your music.** Music or podcasts pause while you dictate and resume afterwards. If nothing
   was playing, nothing is touched.
+- **Webhook (optional).** Give it a URL and it POSTs `{"event":"start"}` / `{"event":"stop"}`
+  as you start and finish dictating, so another device can react, for example pausing music on
+  your computer. Plain `http://` works for home or VPN addresses. Leave it empty to turn it off.
 - **Clean text.** Filler sounds (um, uh, erm) and stutters ("I, I, I want", "b-b-book",
   "can you, can you") are removed automatically. It's handy for anyone who stutters, and you can
   switch it off.

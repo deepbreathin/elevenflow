@@ -88,6 +88,18 @@ class MainActivity : Activity() {
             })
         })
 
+        col.addView(EditText(this).apply {
+            hint = "Webhook URL (optional): told when dictation starts and stops"
+            isSingleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setText(getSharedPreferences("flow", MODE_PRIVATE).getString("hookUrl", ""))
+            addTextChangedListener(object : TextWatcher {
+                override fun afterTextChanged(e: Editable?) { Settings.put(this@MainActivity, "hookUrl", e.toString().trim()) }
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            })
+        })
+
         heading("Recent — tap to copy")
         col.addView(history)
     }
