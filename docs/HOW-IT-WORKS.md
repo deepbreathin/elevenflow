@@ -34,7 +34,7 @@ A technical tour for anyone reading or changing the code. The user guide is in t
 
 | File | Role |
 |---|---|
-| `FlowService.kt` | Foreground service (type *microphone*). Owns the bubble and meter overlay windows, touch handling (tap vs hold vs drag), position memory, and the `Session` class that runs one dictation from start to finish. |
+| `FlowService.kt` | Foreground service (type *microphone*). Owns the bubble, meter and language-chip overlay windows, touch handling (tap vs hold vs drag), position memory, and the `Session` class that runs one dictation from start to finish. |
 | `Scribe.kt` | Realtime WebSocket client for `wss://api.elevenlabs.io/v1/speech-to-text/realtime`. Queues audio until the socket opens and reports partial, committed and error messages. |
 | `Batch.kt` | Whole-file transcription (`POST /v1/speech-to-text`, `scribe_v2`). The retry path. |
 | `InsertService.kt` | Accessibility service. Finds the focused editable field (across windows), pastes (falling back to set-text), treats placeholder text as empty, and reports whether a keyboard is on screen. |
@@ -44,6 +44,7 @@ A technical tour for anyone reading or changing the code. The user guide is in t
 | `Hush.kt` | Pauses music while you dictate: takes exclusive audio focus only if a media player is actually playing, gives it back when recording ends, and presses Play if the music hasn't resumed 1.2 s later. |
 | `BubbleArt.kt` | The bubble's idle and recording images: the built-in robot, or your picked picture (centre-cropped to a square, scaled to 384 px, with the recording version made by mapping brightness onto a purple ramp). |
 | `Wave.kt` | The sound-wave styles (`WaveStyle`) and the one view that draws them (`WaveView`), used by both the live meter and the animated previews in settings. |
+| `Languages.kt` | The ~100 languages Scribe takes as `language_code`, which ones you ticked, and the one in use now. Each `Session` reads it once at the start, so switching mid-dictation never changes that utterance's language (its automatic file retry included). Retries you start yourself (**↻ transcribe again**, the notification) use the language selected now. `auto` sends no `language_code` at all. |
 | `Settings.kt` | Every user setting and its default, in one place. The service re-reads them live. |
 | `MainActivity.kt` | Setup checklist, API key field, settings, and recent dictations with retry. |
 | `TestReceiver.kt` + `src/debug/AndroidManifest.xml` | Debug-only hook that feeds a WAV file in place of the microphone (see [Testing](#testing)). |

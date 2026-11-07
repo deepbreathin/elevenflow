@@ -77,7 +77,7 @@ class MainActivity : Activity() {
         heading("Dictation")
         slider("Tap vs hold", 150, 800, Settings.holdMs(this), "holdMs") { "hold longer than $it ms = push-to-talk" }
         toggle("Remove filler words (um, uh) and stutters", Settings.cleanSpeech(this), "cleanSpeech")
-        toggle("Detect language (off = English only, a bit more accurate)", Settings.autoLanguage(this), "autoLang")
+        languageRow()
         col.addView(EditText(this).apply {
             hint = "Custom words, comma separated (names, jargon)"
             setText(getSharedPreferences("flow", MODE_PRIVATE).getString("keyterms", ""))
@@ -102,6 +102,63 @@ class MainActivity : Activity() {
 
         heading("Recent — tap to copy")
         col.addView(history)
+    }
+
+    private lateinit var langPicker: android.widget.RadioGroup
+    private lateinit var langSummary: TextView
+
+    /**
+     * Languages: tick the ones you speak (a dialog with the full list), then pick which one is in use now.
+     * With two or more ticked, the bubble shows a small chip you tap to switch between them.
+     */
+    private fun languageRow() {
+        langSummary = TextView(this).apply { textSize = 16f; setPadding(0, (10 * px).toInt(), 0, (4 * px).toInt()) }
+        col.addView(langSummary)
+        langPicker = android.widget.RadioGroup(this)
+        col.addView(langPicker)
+        col.addView(Button(this).apply {
+            text = "Choose languages…"; textSize = 16f
+            setOnClickListener { chooseLanguages() }
+        })
+        renderLanguages()
+    }
+
+    private fun renderLanguages() {
+        val on = Languages.enabled(this)
+        langSummary.text = if (on.size == 1) "Language — ${Languages.of(on[0]).name}"
+            else "Speak in (tap the language chip by the bubble to switch)"
+        langPicker.setOnCheckedChangeListener(null)
+        langPicker.removeAllViews()
+        langPicker.visibility = if (on.size > 1) android.view.View.VISIBLE else android.view.View.GONE
+        val now = Languages.current(this)
+        on.forEach { code ->
+            langPicker.addView(android.widget.RadioButton(this).apply {
+                id = android.view.View.generateViewId(); tag = code
+                text = Languages.of(code).name; textSize = 16f
+                isChecked = code == now
+            })
+        }
+        langPicker.setOnCheckedChangeListener { g, id ->
+            (g.findViewById<android.view.View>(id)?.tag as? String)?.let { Languages.setCurrent(this, it) }
+        }
+    }
+
+    private fun chooseLanguages() {
+        val all = Languages.all
+        val on = Languages.enabled(this)
+        val checked = BooleanArray(all.size) { all[it].code in on }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Languages you speak")
+            .setMultiChoiceItems(all.map { if (it.code == Languages.AUTO) "${it.name} (can confuse similar languages)" else it.name }
+                .toTypedArray(), checked) { _, i, v -> checked[i] = v }
+            .setPositiveButton("OK") { _, _ ->
+                val picked = all.filterIndexed { i, _ -> checked[i] }.map { it.code }
+                if (picked.isEmpty()) toast("Keeping at least one: English")
+                Languages.setEnabled(this, picked)
+                renderLanguages()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private lateinit var artPreview: LinearLayout
@@ -225,6 +282,7 @@ class MainActivity : Activity() {
         if (Settings.wantOn(this) && !FlowService.running && hasKey() && hasMic() && hasOverlay())
             startForegroundService(Intent(this, FlowService::class.java))
         render()
+        if (::langPicker.isInitialized) renderLanguages()
         window.decorView.postDelayed({ render() }, 300)
     }
 
@@ -281,9 +339,9 @@ class MainActivity : Activity() {
     /** Send a saved recording through the whole-file endpoint; result replaces the entry and goes to the clipboard. */
     private fun retranscribe(e: History.Entry, label: TextView) {
         label.text = "… transcribing"
-        val kt = Settings.keyterms(this); val auto = Settings.autoLanguage(this)
+        val kt = Settings.keyterms(this); val lang = Languages.code(this)
         Thread {
-            val result = runCatching { Batch.transcribe(Settings.apiKey(this), java.io.File(e.audio!!), kt, auto, Settings.cleanSpeech(this))
+            val result = runCatching { Batch.transcribe(Settings.apiKey(this), java.io.File(e.audio!!), kt, lang, Settings.cleanSpeech(this))
                 .let { Settings.tidy(this, it) } }
             runOnUiThread {
                 result.onSuccess { t ->
