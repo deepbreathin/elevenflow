@@ -37,7 +37,7 @@ class NudgeReceiver : BroadcastReceiver() {
         toast(ctx, "Trying again…")
         val done = goAsync()
         Thread {
-            val r = runCatching { Batch.transcribe(Settings.apiKey(ctx), audio, Settings.keyterms(ctx), Settings.autoLanguage(ctx), Settings.cleanSpeech(ctx))
+            val r = runCatching { Batch.transcribe(Settings.apiKey(ctx), audio, Settings.keyterms(ctx), Languages.code(ctx), Settings.cleanSpeech(ctx))
                 .let { Settings.tidy(ctx, it) } }
             Handler(Looper.getMainLooper()).post {
                 r.onSuccess { t ->

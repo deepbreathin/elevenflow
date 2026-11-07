@@ -21,11 +21,11 @@ object Batch {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    fun transcribe(apiKey: String, wav: File, keyterms: List<String>, autoLanguage: Boolean, noVerbatim: Boolean = false): String {
+    fun transcribe(apiKey: String, wav: File, keyterms: List<String>, languageCode: String?, noVerbatim: Boolean = false): String {
         val body = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("model_id", "scribe_v2")
             .addFormDataPart("tag_audio_events", "false")
-            .apply { if (!autoLanguage) addFormDataPart("language_code", "en") }
+            .apply { languageCode?.let { addFormDataPart("language_code", it) } }
             .apply { if (noVerbatim) addFormDataPart("no_verbatim", "true") }
             .apply { keyterms.forEach { addFormDataPart("keyterms", it) } }
             .addFormDataPart("file", wav.name, wav.asRequestBody("audio/wav".toMediaType()))

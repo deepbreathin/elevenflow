@@ -55,12 +55,19 @@ class FlowService : Service() {
     private lateinit var lp: WindowManager.LayoutParams
     private lateinit var meter: WaveView
     private lateinit var meterLp: WindowManager.LayoutParams
+    private lateinit var chip: LangChip
+    private lateinit var chipLp: WindowManager.LayoutParams
+    private var lastNote = "Ready"
     private var session: Session? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") { stopSelf(); return START_NOT_STICKY }
+        if (intent?.action == "nextLang") {   // notification's "Switch language" button
+            if (running) { switchLanguage(); return START_STICKY }
+            stopSelf(); return START_NOT_STICKY
+        }
         // Debug-only test hook: feed a 16 kHz mono WAV as if it were the mic (real time), then stop.
         //   adb shell am broadcast -n app.elevenflow/.TestReceiver --es wav /data/local/tmp/x.wav
         if (BuildConfig.DEBUG && intent?.action == "test" && running) {
@@ -96,22 +103,41 @@ class FlowService : Service() {
         session?.cancel()
         if (::bubble.isInitialized) wm.removeView(bubble)
         if (::meter.isInitialized) wm.removeView(meter)
+        if (::chip.isInitialized) wm.removeView(chip)
         super.onDestroy()
     }
 
-    /** Always-on notification. Tap opens the app (stopping is only from the app's button). */
-    private fun notification(detail: String = "Ready"): Notification {
+    /**
+     * Always-on notification. Tap opens the app (stopping is only from the app's button).
+     * With two or more languages ticked it shows the current one and a "Switch language" button.
+     */
+    private fun notification(detail: String = lastNote): Notification {
+        lastNote = detail
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("flow", "Bubble", NotificationManager.IMPORTANCE_MIN))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Builder(this, "flow")
+        val b = Notification.Builder(this, "flow")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle("ElevenFlow bubble is on")
             .setContentText(detail)
             .setContentIntent(open)
             .setOngoing(true)
             .setGroup("bubble")
-            .build()
+        if (Languages.enabled(this).size > 1) {
+            val next = PendingIntent.getService(this, 2, Intent(this, FlowService::class.java).setAction("nextLang"),
+                PendingIntent.FLAG_IMMUTABLE)
+            b.setSubText(Languages.of(Languages.current(this)).name)
+                .addAction(Notification.Action.Builder(
+                    android.graphics.drawable.Icon.createWithResource(this, android.R.drawable.ic_menu_rotate),
+                    "Switch language", next).build())
+        }
+        return b.build()
+    }
+
+    /** Next ticked language; the prefs listener updates the chip and notification. */
+    private fun switchLanguage() {
+        val l = Languages.cycle(this)
+        Toast.makeText(this, l.name, Toast.LENGTH_SHORT).show()
     }
 
     // ---------- bubble ----------
@@ -178,7 +204,44 @@ class FlowService : Service() {
         ).apply { gravity = Gravity.TOP or Gravity.START }
         meter.visibility = View.GONE
         wm.addView(meter, meterLp)
+        addChip()
         applyVisibility()
+    }
+
+    /** Small language label under the bubble (only with 2+ languages ticked); tap it to switch language. */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun addChip() {
+        chip = LangChip(this)
+        chipLp = WindowManager.LayoutParams(
+            dp(40), dp(20),
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        var downX = 0f; var downY = 0f
+        chip.setOnTouchListener { v, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { downX = e.rawX; downY = e.rawY }
+                MotionEvent.ACTION_UP -> if (hypot(e.rawX - downX, e.rawY - downY) < dp(24) && session == null) {
+                    switchLanguage(); v.buzz()
+                }
+            }
+            true
+        }
+        chip.visibility = View.GONE
+        wm.addView(chip, chipLp)
+        placeChip()
+    }
+
+    /** Just below the bubble, centred; above it if the bubble is at the bottom of the screen. */
+    private fun placeChip() {
+        if (!::chip.isInitialized) return
+        chipLp.height = dp(22)
+        chipLp.width = chip.wantWidth()
+        chipLp.x = lp.x + (lp.width - chipLp.width) / 2
+        val below = lp.y + lp.height + dp(2)
+        chipLp.y = if (below + chipLp.height > screen().height()) lp.y - chipLp.height - dp(2) else below
+        wm.updateViewLayout(chip, chipLp)
     }
 
     // ---------- position that survives fold/unfold ----------
@@ -238,6 +301,7 @@ class FlowService : Service() {
         meterLp.x = if (onRight) lp.x - meterLp.width - dp(4) else lp.x + lp.width + dp(4)
         meterLp.y = lp.y + (lp.height - meterLp.height) / 2
         wm.updateViewLayout(meter, meterLp)
+        placeChip()
     }
 
     // held as a field: SharedPreferences only keeps weak references to listeners
@@ -252,6 +316,11 @@ class FlowService : Service() {
         }
         if (key == "kbonly" || key == "meter") onKeyboard(keyboardUp)
         if (key == "idleOpacity" || key == "recOpacity") render()
+        if (key == "lang" || key == "langs") main.post {
+            if (::chip.isInitialized) { chip.invalidate(); placeChip() }
+            applyVisibility()
+            getSystemService(NotificationManager::class.java).notify(1, notification())
+        }
     }
 
     fun onKeyboard(up: Boolean) { keyboardUp = up; main.post { applyVisibility() } }
@@ -267,6 +336,15 @@ class FlowService : Service() {
         val rec = session?.state == State.RECORDING && Settings.meter(this)
         if (rec && meter.visibility != View.VISIBLE) { meter.clear(); placeMeter() }
         meter.visibility = if (rec) View.VISIBLE else View.GONE
+        // hidden mid-dictation so a stray tap can't land on it; the utterance keeps the language it started with
+        if (::chip.isInitialized) {
+            val chipOn = show && session == null && Languages.enabled(this).size > 1
+            chip.visibility = if (chipOn) View.VISIBLE else View.GONE
+            chip.alpha = maxOf(Settings.idleOpacity(this), 60) / 100f
+            val cf = if (chipOn) chipLp.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                     else chipLp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            if (cf != chipLp.flags) { chipLp.flags = cf; wm.updateViewLayout(chip, chipLp) }
+        }
     }
 
     private fun View.buzz() { if (Settings.vibrate(context)) performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
@@ -287,6 +365,25 @@ class FlowService : Service() {
             p.alpha = (if (rec) Settings.recOpacity(context) else Settings.idleOpacity(context)) * 255 / 100
             dst.set(0f, 0f, width.toFloat(), height.toFloat())
             c.drawBitmap(if (rec) on else off, null, dst, p)
+        }
+    }
+
+    /** Rounded dark pill with the language code (EN, HY, AUTO). Follows the bubble's idle see-through, but stays readable. */
+    private inner class LangChip(ctx: Context) : View(ctx) {
+        private val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E61F2430") }
+        private val fg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; textAlign = Paint.Align.CENTER
+            textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 11f, resources.displayMetrics)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        private val r = android.graphics.RectF()
+        private fun label() = Languages.of(Languages.current(context)).badge
+        fun wantWidth() = (fg.measureText(label()) + dp(16)).toInt()
+
+        override fun onDraw(c: Canvas) {
+            r.set(0f, 0f, width.toFloat(), height.toFloat())
+            c.drawRoundRect(r, height / 2f, height / 2f, bg)
+            c.drawText(label(), width / 2f, height / 2f - (fg.descent() + fg.ascent()) / 2, fg)
         }
     }
 
@@ -314,8 +411,10 @@ class FlowService : Service() {
         private val id = System.currentTimeMillis()
         private val wav = Recordings.newFile(this@FlowService, id)
         private val wavReady = java.util.concurrent.CountDownLatch(1)
+        // fixed for the whole utterance (incl. the retry), even if you switch language mid-way
+        private val lang = Languages.code(this@FlowService)
         private val audio = java.io.ByteArrayOutputStream()
-        private val scribe = Scribe(listener, Settings.apiKey(this@FlowService), keyterms(), Settings.autoLanguage(this@FlowService),
+        private val scribe = Scribe(listener, Settings.apiKey(this@FlowService), keyterms(), lang,
             Settings.cleanSpeech(this@FlowService))
         @Volatile private var liveDead = false
         private val segments = mutableListOf<String>()
@@ -421,11 +520,11 @@ class FlowService : Service() {
         }
 
         private fun viaFile() {
-            val kt = keyterms(); val auto = Settings.autoLanguage(this@FlowService)
+            val kt = keyterms()
             thread(name = "batch") {
                 wavReady.await()
                 try {
-                    val text = Batch.transcribe(Settings.apiKey(this@FlowService), wav, kt, auto, Settings.cleanSpeech(this@FlowService))
+                    val text = Batch.transcribe(Settings.apiKey(this@FlowService), wav, kt, lang, Settings.cleanSpeech(this@FlowService))
                     main.post { if (text.isBlank()) finishSilently() else deliver(text, retried = true) }
                 } catch (e: Exception) {
                     main.post { failedAll(e.message ?: "network error") }
