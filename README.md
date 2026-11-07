@@ -58,6 +58,10 @@ and sent only to ElevenLabs. There's no server in between, no account and no tra
 - **Clean text.** Filler sounds (um, uh, erm) and stutters ("I, I, I want", "b-b-book",
   "can you, can you") are removed automatically. It's handy for anyone who stutters, and you can
   switch it off.
+- **Your languages.** Tick the languages you speak, e.g. English and Armenian, and switch between
+  them with one tap on the small language chip under the bubble (`EN` → `HY`). Choosing the
+  language beats auto-detect, which can confuse languages that sound alike (Armenian coming out in
+  Russian letters, say). *Detect automatically* is still there if you want it.
 - **Custom words.** Teach it names and jargon it would otherwise mishear.
 - **Foldable-friendly.** The bubble keeps its place when you fold or unfold the phone or rotate it.
 
@@ -106,8 +110,9 @@ Tip: in your phone's battery settings, set ElevenFlow to **Unrestricted**. Other
 | Push-to-talk | **Hold** the bubble while you talk, **let go** to send |
 | Move the bubble | **Drag** it. Dragging never stops a recording that's in progress |
 | See it's hearing you | Watch the sound meter that appears beside the bubble while recording |
+| Switch language | **Tap** the small chip under the bubble (`EN`, `HY`, …), or **Switch language** on the notification. Shown once you've ticked two or more languages |
 | Get an old dictation | Open the app → **Recent**: tap any entry to copy it |
-| Re-run a transcription | Open the app → **Recent** → **↻ transcribe again** under that entry |
+| Re-run a transcription | Open the app → **Recent** → **↻ transcribe again** under that entry. It uses the language selected now, so if one came out in the wrong language, switch and re-run it |
 
 - Recording starts the instant your finger touches the bubble, so nothing gets cut off at the start.
 - A press shorter than 0.3 s counts as a tap; anything longer counts as a hold. You can change this
@@ -134,7 +139,7 @@ Everything applies instantly, even while the bubble is on screen.
 | **Vibrate on start / stop** | A small buzz when recording starts and ends | On |
 | **Tap vs hold** | Press length that counts as a hold, 150–800 ms | 300 ms |
 | **Remove filler words and stutters** | Drops um/uh/erm, repeated words and phrases, and stuttered word-starts | On |
-| **Detect language** | Off = English only (slightly more accurate). On = auto-detect | Off |
+| **Languages** | **Choose languages…** ticks the ones you speak (about 100, plus *Detect automatically*). With two or more ticked, pick the one in use under **Speak in**, or switch from the bubble (see below) | English |
 | **Custom words** | Comma-separated names or jargon to recognise, e.g. `Kubernetes, Siobhan, PnL` | — |
 
 ---
