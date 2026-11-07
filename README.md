@@ -219,6 +219,30 @@ A key entered in the app always takes priority. Never share an APK built with a 
 
 The bubble artwork is generated from `art/robot.webp` by `art/make_bubble.py`.
 
+### Releasing a new version
+
+What's in each version is in [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md).
+
+1. Check `versionCode` and `versionName` in `app/build.gradle.kts` match the version you're
+   releasing (e.g. `20` / `"0.20"`), and that the version has a section in the release notes.
+2. Build **on the same computer as the earlier releases**, always with `-PnoKey`:
+   ```bash
+   git checkout main && git pull
+   ./gradlew assembleDebug -PnoKey
+   cp app/build/outputs/apk/debug/app-debug.apk ElevenFlow.apk
+   ```
+   The APK is signed with that computer's debug key. A build from anywhere else (another
+   computer, a cloud session) has a different key, and phones refuse it as an update, so people
+   would have to uninstall first and lose their settings.
+3. Publish the release, tagged `v<versionName>` on `main`, with the APK named exactly
+   `ElevenFlow.apk` (the [Install](#install) link points at that name). Use that version's section
+   of the release notes as the description:
+   ```bash
+   gh release create v0.20 ElevenFlow.apk --target main --title "ElevenFlow 0.20" --notes-file notes.md
+   ```
+   (`notes.md` = just that version's section, copied out of `docs/RELEASE-NOTES.md`.)
+4. In `docs/RELEASE-NOTES.md`, remove "(not published yet)" from that version's heading.
+
 ---
 
 ## How it works
