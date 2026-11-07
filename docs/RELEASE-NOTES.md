@@ -3,7 +3,7 @@
 Newest first. When you publish a release on GitHub, paste that version's section as its
 description. How to publish is in [Releasing a new version](../README.md#releasing-a-new-version).
 
-## 0.20 (not published yet)
+## 0.20
 
 What's new since 0.18:
 
